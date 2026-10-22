@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { PluginRegistry } from '../src/plugins.js';
 import { SnapshotSourceProvider, safeProjectPath } from '../src/source.js';
 import { registerComponent, findComponent } from '../src/components.js';
+import { createHash } from 'node:crypto';
 
 describe('plugin lifecycle', () => {
   it('validates dependencies before setup and rolls completed setup back in reverse order', async () => {
@@ -20,13 +21,20 @@ describe('plugin lifecycle', () => {
     registry.register(plugin); expect(()=>registry.register(plugin)).toThrow('Duplicate plugin id');
     await registry.start(); await registry.dispose(); await registry.dispose(); expect(signal?.aborted).toBe(true); expect(cleanups).toBe(1);
   });
+  it('waits for pending setup and rolls back its cleanup when disposed concurrently', async () => {
+    const registry=new PluginRegistry();let finishSetup!:(cleanup:()=>void)=>void;let cleanupCount=0;let signal:AbortSignal|undefined;
+    registry.register({id:'slow',version:'1',apiVersion:'0.1',kind:'picker',environment:['browser'],setup:({signal:s})=>{signal=s;return new Promise(resolve=>{finishSetup=resolve;});}});
+    const starting=registry.start();await Promise.resolve();const disposing=registry.dispose();expect(signal?.aborted).toBe(true);
+    finishSetup(()=>{cleanupCount++;});await expect(starting).rejects.toMatchObject({name:'AbortError'});await disposing;
+    expect(cleanupCount).toBe(1);await registry.dispose();expect(cleanupCount).toBe(1);
+  });
 });
 
 describe('source snapshots', () => {
   it('returns only a requested range from a matching build-bound snapshot', async () => {
-    const provider = new SnapshotSourceProvider(); const reference = {projectId:'p',appScopeId:'a',buildId:'b',sourceNodeId:'n',file:'src/a.ts',contentHash:'hash',provenance:'build-snapshot' as const};
-    provider.add(reference,{content:'const value = 42;',language:'typescript',sourceVersion:'commit:abc',hash:'hash'});
-    await expect(provider.readSource(reference,{start:6,end:11})).resolves.toMatchObject({content:'value',contentHash:'hash',sourceVersion:'commit:abc'});
+    const provider = new SnapshotSourceProvider(); const content='const value = 42;',hash=createHash('sha256').update(content).digest('hex'); const reference = {projectId:'p',appScopeId:'a',buildId:'b',sourceNodeId:'n',file:'src/a.ts',contentHash:hash,provenance:'build-snapshot' as const};
+    provider.add(reference,{content,language:'typescript',sourceVersion:'commit:abc',hash});
+    await expect(provider.readSource(reference,{start:6,end:11})).resolves.toMatchObject({content:'value',contentHash:hash,sourceVersion:'commit:abc'});
     await expect(provider.readSource(reference,{start:0,end:100})).rejects.toThrow(RangeError);
   });
   it('rejects a snapshot with the wrong content hash and unsafe project paths', async () => {
@@ -34,6 +42,19 @@ describe('source snapshots', () => {
     provider.add(ref,{content:'stale',language:'ts',sourceVersion:'old',hash:'different'});
     await expect(provider.readSource(ref,{start:0,end:2})).resolves.toBeNull();
     expect(safeProjectPath('../secrets')).toBe(false); expect(safeProjectPath('src/file.ts')).toBe(true);
+  });
+  it('does not return a snapshot across project or application scopes', async () => {
+    const provider=new SnapshotSourceProvider(),content='scope secret',hash=createHash('sha256').update(content).digest('hex');
+    const ref={projectId:'p',appScopeId:'a',buildId:'b',sourceNodeId:'n',file:'x',contentHash:hash,provenance:'build-snapshot' as const};
+    provider.add(ref,{content,language:'ts',sourceVersion:'build:b',hash});
+    await expect(provider.readSource({...ref,projectId:'other'},{start:0,end:content.length})).resolves.toBeNull();
+    await expect(provider.readSource({...ref,appScopeId:'other'},{start:0,end:content.length})).resolves.toBeNull();
+  });
+  it('rejects content whose registered digest does not match its actual bytes', async () => {
+    const provider=new SnapshotSourceProvider(),content='original',hash=createHash('sha256').update(content).digest('hex');
+    const ref={projectId:'p',appScopeId:'a',buildId:'b',sourceNodeId:'n',file:'x',contentHash:hash,provenance:'build-snapshot' as const};
+    provider.add(ref,{content:'tampered',language:'ts',sourceVersion:'build:b',hash});
+    await expect(provider.readSource(ref,{start:0,end:8})).resolves.toBeNull();
   });
   it('honors cancellation before reading a source snapshot', async () => {
     const provider=new SnapshotSourceProvider();const controller=new AbortController();controller.abort();

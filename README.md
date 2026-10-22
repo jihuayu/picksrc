@@ -22,7 +22,7 @@ const selection = picker.confirm();
 // selection is still useful without source metadata; it says unavailable.
 ```
 
-The picker observes pointer events locally, uses a `WeakMap` for runtime element IDs, and does not collect text, HTML, or attribute values. The overlay is a separate renderer and does not alter the selected node. `stop()` cancels event listeners. Open shadow roots work through composed event paths; closed roots are not traversed. Cross-origin frames require host cooperation.
+The picker observes pointer events locally, uses a `WeakMap` for runtime element IDs, and does not collect text, HTML, or attribute values. The overlay is a separate renderer and does not alter the selected node. `stop()` cancels event listeners. Open shadow roots work through composed event paths; closed roots are not traversed. A same-origin iframe needs its own picker attached to its `contentDocument` and an overlay created with that document; this v0.1 does not auto-discover frames or translate child-frame overlays into the parent viewport. Cross-origin frames require host cooperation.
 
 ## Vue compiler integration
 
@@ -43,7 +43,7 @@ export default {
 };
 ```
 
-The source endpoint is opt-in and development-only. It requires a same-origin browser request, accepts only a recorded opaque node ID and a range inside that node, reads under the configured project root, checks the full-file content hash, caps snippet size, and disables caching. Production DOM markers stay opaque; no private manifest export/upload or production resolver is included yet. `useVueComponentBridge` is a separate browser-safe entry (`picksrc/vue-runtime`); call it from a component's setup to expose its instance and callsite. Definition metadata is available only through a host-supplied mapping; fragment or multi-root instances without a single element root remain unavailable.
+The source endpoint is opt-in and development-only. The demo sends a POST only from its explicit Confirm action; hover/pointer movement does not make source requests. The endpoint accepts only POSTs with `Sec-Fetch-Site: same-origin` and an exact Origin from Vite's local resolved URLs, plus a recorded opaque node ID and a range inside that node. It reads under the configured project root, rejects symlink paths, checks the full-file content hash and build ID, caps snippet size, and disables caching. This is a local-development guard, not authentication against scripts already running on the same origin. Production DOM markers stay opaque; no private manifest export/upload or production resolver is included yet. `useVueComponentBridge` is a separate browser-safe entry (`picksrc/vue-runtime`); call it from a component's setup to expose its instance and callsite. Definition metadata is available only through a host-supplied mapping; fragment or multi-root instances without a single element root remain unavailable.
 
 ## Source snippets
 

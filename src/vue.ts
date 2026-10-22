@@ -108,10 +108,11 @@ export function createVueAdapter(options: VueAdapterOptions): VueAdapter {
       server.middlewares.use(async (request, response, next) => {
         if (!request.url?.startsWith('/__picksrc/source')) return next();
         response.setHeader('Cache-Control', 'no-store');
-        const expectedOrigin = `${server.config.server.https ? 'https' : 'http'}://${request.headers.host ?? ''}`;
-        if (request.method !== 'GET' || request.headers['sec-fetch-site'] !== 'same-origin' || (request.headers.origin && request.headers.origin !== expectedOrigin)) { response.statusCode = 403; response.end(); return; }
+        const origin = request.headers.origin;
+        const localOrigins = new Set((server.resolvedUrls?.local ?? []).flatMap(address => { try { return [new URL(address).origin]; } catch { return []; } }));
+        if (request.method !== 'POST' || request.headers['sec-fetch-site'] !== 'same-origin' || !origin || !localOrigins.has(origin)) { response.statusCode = 403; response.end(); return; }
         try {
-          const url = new URL(request.url, expectedOrigin);
+          const url = new URL(request.url, origin);
           if (url.pathname !== '/__picksrc/source') { response.statusCode = 404; response.end(); return; }
           const id = url.searchParams.get('node');
           if (!id || !/^[a-f0-9]{32}$/.test(id)) { response.statusCode = 400; response.end(); return; }

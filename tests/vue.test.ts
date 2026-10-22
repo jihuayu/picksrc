@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { compileTemplate, parse } from '@vue/compiler-sfc';
@@ -24,7 +24,19 @@ describe('official Vue SFC compiler adapter',()=>{
     expect(call!.position.start!.line).toBe(5);
     const ref=adapter.toSourceReference(call!.sourceNodeId)!;
     await expect(adapter.readSource(ref)).resolves.toMatchObject({content:'<SaveButton />',language:'vue',provenance:'build-snapshot'});
+    await expect(adapter.readSource({...ref,buildId:'stale-build'})).resolves.toBeNull();
     writeFileSync(filename,source.replace('SaveButton','ChangedButton'));
+    await expect(adapter.readSource(ref)).resolves.toBeNull();
+  });
+
+  it('rejects a symlink swapped into the recorded project path after compilation',async()=>{
+    const root=mkdtempSync(path.join(tmpdir(),'picksrc-vue-'));roots.push(root);mkdirSync(path.join(root,'src'));
+    const filename=path.join(root,'src','App.vue'),outside=path.join(root,'Outside.vue'),source='<template><button>Safe</button></template>';
+    writeFileSync(filename,source);writeFileSync(outside,source);const descriptor=parse(source,{filename}).descriptor;
+    const adapter=createVueAdapter({root,projectId:'p',appScopeId:'a',buildId:'b'});
+    compileTemplate({source:descriptor.template!.content,filename,id:'app',compilerOptions:adapter.compilerOptions});
+    const ref=adapter.toSourceReference(adapter.getRecords()[0]!.sourceNodeId)!;
+    unlinkSync(filename);symlinkSync(outside,filename);
     await expect(adapter.readSource(ref)).resolves.toBeNull();
   });
 

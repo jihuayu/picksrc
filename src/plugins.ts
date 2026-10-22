@@ -2,15 +2,20 @@ export type PluginKind = 'picker'|'renderer'|'marker-reader'|'runtime-adapter'|'
 export interface PluginDescriptor { id: string; version: string; apiVersion: string; kind: PluginKind; requires?: string[]; provides?: string[]; environment: Array<'browser'|'server'|'build'>; setup(context: PluginContext): void | (() => void | Promise<void>) | Promise<void | (() => void | Promise<void>)> }
 export interface PluginContext { signal: AbortSignal; diagnose(message: string, error?: unknown): void }
 export class PluginRegistry {
-  #plugins = new Map<string, PluginDescriptor>(); #cleanups: Array<() => void | Promise<void>> = []; #controller?: AbortController; #active = false;
+  #plugins = new Map<string, PluginDescriptor>(); #cleanups: Array<() => void | Promise<void>> = []; #controller?: AbortController; #active = false; #starting: Promise<void> | undefined;
   register(plugin: PluginDescriptor): this { if (this.#active) throw new Error('Cannot register plugins after start'); if (this.#plugins.has(plugin.id)) throw new Error(`Duplicate plugin id: ${plugin.id}`); this.#plugins.set(plugin.id, plugin); return this; }
-  async start(diagnose: (message: string, error?: unknown) => void = () => {}): Promise<void> {
-    if (this.#active) return;
+  start(diagnose: (message: string, error?: unknown) => void = () => {}): Promise<void> {
+    if (this.#active) return Promise.resolve();
+    if (this.#starting) return this.#starting;
+    const starting = this.#start(diagnose); this.#starting = starting;
+    return starting.finally(() => { if (this.#starting === starting) this.#starting = undefined; });
+  }
+  async #start(diagnose: (message: string, error?: unknown) => void): Promise<void> {
     const sorted = this.#sort(); this.#controller = new AbortController();
-    try { for (const p of sorted) { const cleanup = await p.setup({ signal: this.#controller.signal, diagnose }); if (cleanup) this.#cleanups.push(cleanup); } this.#active = true; }
+    try { for (const p of sorted) { const cleanup = await p.setup({ signal: this.#controller.signal, diagnose }); if (cleanup) this.#cleanups.push(cleanup); if (this.#controller.signal.aborted) throw this.#controller.signal.reason ?? new DOMException('Aborted', 'AbortError'); } this.#active = true; }
     catch (error) { this.#controller.abort(error); await this.#disposePartial(diagnose); throw error; }
   }
-  async dispose(): Promise<void> { this.#controller?.abort(); await this.#disposePartial(() => {}); this.#active = false; }
+  async dispose(): Promise<void> { this.#controller?.abort(); await this.#starting?.catch(() => {}); await this.#disposePartial(() => {}); this.#active = false; }
   #sort(): PluginDescriptor[] {
     const output: PluginDescriptor[] = [], marks = new Map<string, number>();
     const visit = (p: PluginDescriptor) => { const m = marks.get(p.id) ?? 0; if (m === 1) throw new Error(`Plugin dependency cycle at ${p.id}`); if (m === 2) return; marks.set(p.id,1); for (const id of p.requires ?? []) { const dep = this.#plugins.get(id); if (!dep) throw new Error(`Missing plugin dependency ${id} required by ${p.id}`); visit(dep); } marks.set(p.id,2); output.push(p); };
