@@ -4,7 +4,7 @@ Framework-neutral TypeScript SDK for selecting DOM elements, locating component 
 
 ## Status
 
-v0.1 is experimental. Browser picking works without a source service. `SnapshotSourceProvider` only returns content from a snapshot explicitly registered by the host and matching the build/content hash. Vue 3.5 is the first compiler adapter with a tested AST-to-original-source range and original snippet readback. React and Solid compiler/runtime adapters are not supported yet.
+v0.1 is experimental. Browser picking works without a source service. `SnapshotSourceProvider` only returns content from a snapshot explicitly registered by the host and matching the build/content hash. Vue 3.5 is the first compiler adapter with a tested AST-to-original-source range and original snippet readback. React and Solid now have separate runtime inspection entries and optional original-JSX instrumentation.
 
 ## Basic use
 
@@ -58,12 +58,36 @@ Call `SnapshotSourceProvider.add()` with a host-authorized snapshot tied to an e
 | Framework | Element picking | Component instance / owner | Exact source-node mapping |
 | --- | --- | --- | --- |
 | Plain DOM | Supported | Not applicable | Not provided |
-| React | DOM can be picked | Not supported in this release | Not supported |
+| React | Supported | Existing Fiber association; development locations need metadata/maps; private internals are best-effort | Optional JSX adapter verifies original element ranges; production source service not included |
 | Vue 3.5.x | Supported | Component instance and exact template callsite in the dev bridge; definition metadata requires a host resolver | Exact template AST range and original source snippet in dev snapshot mode; production resolver pending |
-| Solid | DOM can be picked | Not supported in this release | Not supported |
+| Solid | Supported | Explicit owner binding or existing DevTools integration; no automatic production DOM-to-owner guarantee | Optional JSX adapter verifies original element ranges |
 
 Source maps alone are not treated as DOM-to-source evidence. A result without verified node evidence remains `unavailable`/`unknown`.
 
 ## License
 
-See [LICENSE-STATUS.md](./LICENSE-STATUS.md). This repository had no license at implementation start, so no license is asserted by this SDK.
+Apache-2.0. See [LICENSE](./LICENSE). Third-party dependencies retain their own licenses.
+
+## React and Solid
+
+Runtime-only inspection does not require the Picksrc compiler transform:
+
+```ts
+import { inspectReactElement } from 'picksrc/react-runtime';
+import { createSolidRuntimeAdapter } from 'picksrc/solid-runtime';
+const react = inspectReactElement(element, { mapLocation: hostSourceMapResolver });
+const solid = createSolidRuntimeAdapter();
+const instance = {}; // Allocate once per component invocation, not per reactive update
+const unbind = solid.bind(element, instance); // Supply describeOwner to identify this token
+const inspection = solid.inspect(element);
+```
+
+React uses an existing DOM Fiber association or an explicitly supplied renderer lookup. Private renderer fields can change. React 19 stack coordinates refer to generated code and are not promoted to original positions without an explicit mapping callback. Component names and runtime identity do not prove exact element ranges. Solid requires an explicit per-component token binding or real DevTools component-owner integration. getOwner() alone is a reactive scope and can be shared by multiple production components; it is not a component instance identifier: ordinary production DOM does not retain enough information to reconstruct owners, and source maps cannot create that missing association. Disposing a Solid bridge releases its bindings. Neither runtime entry installs a global hook, fetches scripts, nor downloads source maps.
+
+`picksrc/sourcemap` maps a known generated line/column using a supplied map and optionally returns embedded sourcesContent. Coordinates are 1-based at the public API. Mapping yields a point, not an exact AST range; callers own map provenance, URL authorization, and source freshness.
+
+For exact original JSX evidence, add `createJsxAdapter` from `picksrc/jsx` before the normal React/Solid compiler. Configure `framework`, `root`, `projectId`, `appScopeId`, `buildId`, and optionally an `include` RegExp to restrict files. The adapter checks original bytes, injects opaque IDs, and emits a chainable high-resolution source map. `getRecords`, `toSourceReference`, and `readSource` expose bounded, hash-checked original ranges. Capitalized lexical component declarations supply static definition evidence, not runtime ownership. Component props may not be forwarded; custom component markers alone are not proof of a DOM callsite. Member/namespaced JSX remains runtime-only. Instrumentation is optional and deliberately separate from runtime inspection.
+
+The optional local-development endpoint is `/__picksrc/react/source` or `/__picksrc/solid/source`; same-origin POST and an opaque recorded node ID are required. It must never be exposed as a production source service. No production private-manifest publication or remote source retrieval is implemented.
+
+Run `pnpm exec vite --host 127.0.0.1` and open `/demo/react/` or `/demo/solid/`. These use real React/Solid renderers, state updates, runtime inspection, and original-source readback only after clicking Inspect. The E2E suite runs Chromium, Firefox and WebKit. Package consumer tests verify that the default entry imports without any framework installed and optional entries remain consumable from the packed tarball.

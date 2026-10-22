@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Framework-neutral element picking, component locating, and source evidence SDK",
   "type": "module",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -20,12 +20,28 @@
     "./vue-runtime": {
       "types": "./dist/vue-runtime.d.ts",
       "import": "./dist/vue-runtime.js"
+    },
+    "./jsx": {
+      "types": "./dist/jsx.d.ts",
+      "import": "./dist/jsx.js"
+    },
+    "./sourcemap": {
+      "types": "./dist/sourcemap.d.ts",
+      "import": "./dist/sourcemap.js"
+    },
+    "./react-runtime": {
+      "types": "./dist/react-runtime.d.ts",
+      "import": "./dist/react-runtime.js"
+    },
+    "./solid-runtime": {
+      "types": "./dist/solid-runtime.d.ts",
+      "import": "./dist/solid-runtime.js"
     }
   },
   "files": [
     "dist",
     "README.md",
-    "LICENSE-STATUS.md"
+    "LICENSE"
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
@@ -36,25 +52,56 @@
   },
   "devDependencies": {
     "@playwright/test": "1.55.0",
+    "@types/babel__traverse": "7.28.0",
     "@types/node": "22.18.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "4.7.0",
     "@vitejs/plugin-vue": "6.0.10",
     "@vue/compiler-dom": "3.5.44",
     "@vue/compiler-sfc": "3.5.44",
     "jsdom": "26.1.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "solid-js": "1.9.17",
     "typescript": "5.9.2",
     "vite": "7.1.7",
+    "vite-plugin-solid": "2.11.14",
     "vitest": "3.2.4",
     "vue": "3.5.44"
   },
   "peerDependencies": {
+    "@types/node": ">=20",
     "@vue/compiler-dom": "^3.5.0",
     "@vue/compiler-sfc": "^3.5.0",
-    "@types/node": ">=20",
-    "vue": "^3.5.0",
-    "vite": ">=5 <9"
+    "vite": ">=5 <9",
+    "vue": "^3.5.0"
   },
-  "pnpm": { "onlyBuiltDependencies": ["esbuild"] },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "@babel/parser": "7.29.9",
+    "@babel/traverse": "7.29.10",
+    "@babel/types": "7.29.8",
+    "magic-string": "0.30.21",
+    "@jridgewell/trace-mapping": "0.3.31"
+  },
+  "peerDependenciesMeta": {
+    "@types/node": {
+      "optional": true
+    },
+    "@vue/compiler-dom": {
+      "optional": true
+    },
+    "@vue/compiler-sfc": {
+      "optional": true
+    },
+    "vite": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    }
   }
 }
