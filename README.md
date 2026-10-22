@@ -4,7 +4,7 @@ Framework-neutral TypeScript SDK for selecting DOM elements, locating component 
 
 ## Status
 
-v0.1 is experimental. Browser picking works without a source service. `SnapshotSourceProvider` only returns content from a snapshot explicitly registered by the host and matching the build/content hash. This initial version does **not** claim React, Vue, or Solid source-node instrumentation: generic markup/compiler rewriting is intentionally disabled until each adapter passes its own minified-output and node-identity fixtures. Component runtime adapters are also not yet shipped. Do not infer a component from a filename.
+v0.1 is experimental. Browser picking works without a source service. `SnapshotSourceProvider` only returns content from a snapshot explicitly registered by the host and matching the build/content hash. Vue 3.5 is the first compiler adapter with a tested AST-to-original-source range and original snippet readback. React and Solid compiler/runtime adapters are not supported yet.
 
 ## Basic use
 
@@ -24,6 +24,27 @@ const selection = picker.confirm();
 
 The picker observes pointer events locally, uses a `WeakMap` for runtime element IDs, and does not collect text, HTML, or attribute values. The overlay is a separate renderer and does not alter the selected node. `stop()` cancels event listeners. Open shadow roots work through composed event paths; closed roots are not traversed. Cross-origin frames require host cooperation.
 
+## Vue compiler integration
+
+The Vue adapter uses the official SFC `NodeTransform` hook and verifies each AST node's source slice against the original `.vue` file before recording an exact range. Add `@vitejs/plugin-vue` to the host build and pass the adapter's node transforms through its public compiler options:
+
+```ts
+import vue from '@vitejs/plugin-vue';
+import { createVueAdapter } from 'picksrc/vue';
+
+const picksrcVue = createVueAdapter({
+  root: process.cwd(), projectId: 'web', appScopeId: 'main-app', buildId: 'build-123',
+  includeDevelopmentLocations: true,
+  enableDevelopmentSourceEndpoint: true,
+});
+
+export default {
+  plugins: [vue({ template: { compilerOptions: picksrcVue.compilerOptions } }), picksrcVue.plugin],
+};
+```
+
+The source endpoint is opt-in and development-only. It requires a same-origin browser request, accepts only a recorded opaque node ID and a range inside that node, reads under the configured project root, checks the full-file content hash, caps snippet size, and disables caching. Production DOM markers stay opaque; no private manifest export/upload or production resolver is included yet. `useVueComponentBridge` is a separate browser-safe entry (`picksrc/vue-runtime`); call it from a component's setup to expose its instance and callsite. Definition metadata is available only through a host-supplied mapping; fragment or multi-root instances without a single element root remain unavailable.
+
 ## Source snippets
 
 Call `SnapshotSourceProvider.add()` with a host-authorized snapshot tied to an exact build and content hash. `readSource()` rejects ranges outside the snapshot and supports cancellation. It never fetches a URL or local path. Repository access and source-map transport are intentionally left behind host interfaces; do not pass arbitrary paths or URLs from page-controlled markers.
@@ -38,10 +59,10 @@ Call `SnapshotSourceProvider.add()` with a host-authorized snapshot tied to an e
 | --- | --- | --- | --- |
 | Plain DOM | Supported | Not applicable | Not provided |
 | React | DOM can be picked | Not supported in this release | Not supported |
-| Vue | DOM can be picked | Not supported in this release | Not supported |
+| Vue 3.5.x | Supported | Component instance and exact template callsite in the dev bridge; definition metadata requires a host resolver | Exact template AST range and original source snippet in dev snapshot mode; production resolver pending |
 | Solid | DOM can be picked | Not supported in this release | Not supported |
 
-The Vite entry currently guards against unsupported production instrumentation. Source maps alone are not treated as DOM-to-source evidence. A result without verified node evidence remains `unavailable`/`unknown`.
+Source maps alone are not treated as DOM-to-source evidence. A result without verified node evidence remains `unavailable`/`unknown`.
 
 ## License
 

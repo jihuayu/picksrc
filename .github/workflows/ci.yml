@@ -1,27 +1,27 @@
 name: CI
 on:
   pull_request:
-    paths: ['src/**','tests/**','e2e/**','demo/**','package.json','pnpm-lock.yaml','pnpm-workspace.yaml','tsconfig.json','vite.config.ts','playwright.config.ts','.github/workflows/**','README.md','LICENSE-STATUS.md']
+    paths: ['src/**','tests/**','e2e/**','demo/**','scripts/**','package.json','pnpm-lock.yaml','pnpm-workspace.yaml','tsconfig.json','vite.config.ts','playwright.config.ts','.github/workflows/**','README.md','LICENSE-STATUS.md','REUSE-POC.md']
   push:
     branches: ['main','codex/**']
-    paths: ['src/**','tests/**','e2e/**','demo/**','package.json','pnpm-lock.yaml','pnpm-workspace.yaml','tsconfig.json','vite.config.ts','playwright.config.ts','.github/workflows/**','README.md','LICENSE-STATUS.md']
+    paths: ['src/**','tests/**','e2e/**','demo/**','scripts/**','package.json','pnpm-lock.yaml','pnpm-workspace.yaml','tsconfig.json','vite.config.ts','playwright.config.ts','.github/workflows/**','README.md','LICENSE-STATUS.md','REUSE-POC.md']
 jobs:
   typecheck-and-unit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with: { version: 10 }
+        with: { version: 11 }
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile
-      - run: pnpm build && pnpm test
+      - run: pnpm build && pnpm test && pnpm test:package && pnpm pack --dry-run
   browsers:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
-        with: { version: 10 }
+        with: { version: 11 }
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: pnpm }
       - run: pnpm install --frozen-lockfile

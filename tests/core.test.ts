@@ -14,6 +14,12 @@ describe('plugin lifecycle', () => {
     const registry = new PluginRegistry(); registry.register({id:'x',version:'1',apiVersion:'0.1',kind:'picker',requires:['missing'],environment:['browser'],setup:()=>{throw new Error('must not run');}});
     await expect(registry.start()).rejects.toThrow('Missing plugin dependency');
   });
+  it('rejects duplicate identifiers, aborts providers on dispose, and cleans up once', async () => {
+    const registry=new PluginRegistry(); let signal:AbortSignal|undefined; let cleanups=0;
+    const plugin={id:'duplicate',version:'1',apiVersion:'0.1',kind:'picker' as const,environment:['browser' as const],setup:(context:{signal:AbortSignal;diagnose:(message:string,error?:unknown)=>void})=>{signal=context.signal;return ()=>{cleanups++;};}};
+    registry.register(plugin); expect(()=>registry.register(plugin)).toThrow('Duplicate plugin id');
+    await registry.start(); await registry.dispose(); await registry.dispose(); expect(signal?.aborted).toBe(true); expect(cleanups).toBe(1);
+  });
 });
 
 describe('source snapshots', () => {
@@ -28,6 +34,11 @@ describe('source snapshots', () => {
     provider.add(ref,{content:'stale',language:'ts',sourceVersion:'old',hash:'different'});
     await expect(provider.readSource(ref,{start:0,end:2})).resolves.toBeNull();
     expect(safeProjectPath('../secrets')).toBe(false); expect(safeProjectPath('src/file.ts')).toBe(true);
+  });
+  it('honors cancellation before reading a source snapshot', async () => {
+    const provider=new SnapshotSourceProvider();const controller=new AbortController();controller.abort();
+    const ref={projectId:'p',appScopeId:'a',buildId:'b',sourceNodeId:'n',file:'x',contentHash:'hash',provenance:'build-snapshot' as const};
+    await expect(provider.readSource(ref,{start:0,end:0},controller.signal)).rejects.toMatchObject({name:'AbortError'});
   });
 });
 

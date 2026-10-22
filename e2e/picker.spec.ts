@@ -1,8 +1,9 @@
 import { test, expect } from '@playwright/test';
-test('selects DOM elements with pointer and keyboard and degrades without source metadata', async ({ page }) => {
-  await page.goto('/'); await page.locator('#target').hover(); await expect(page.locator('#selected')).toHaveText('button');
+test('selects a Vue component by pointer and keyboard and restores its original callsite source', async ({ page }) => {
+  await page.goto('/'); const target=page.getByRole('button',{name:'Save fixture'}); await target.hover(); await expect(page.locator('#selected')).toHaveText('button');
   const result=await page.evaluate(() => (window as any).picksrc.confirm());
-  expect(result.status).toBe('unavailable'); expect(result.requestedTarget.tagName).toBe('button');
+  expect(result.component.framework).toBe('vue'); expect(result.component.callsite.role).toBe('component-callsite'); expect(result.component.callsite.precision).toBe('exact-range');
+  expect(result.evidence[0].confidence).toBe('hint');
+  await page.locator('#confirm').click(); await expect(page.locator('#source')).toContainText('<SaveButton />');
   await page.keyboard.press('ArrowUp'); await expect(page.locator('#selected')).toHaveText('main');
-  const again=await page.evaluate(() => (window as any).picksrc.confirm()); expect(again.resolvedTarget.tagName).toBe('main');
 });

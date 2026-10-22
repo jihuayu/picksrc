@@ -4,10 +4,57 @@
   "description": "Framework-neutral element picking, component locating, and source evidence SDK",
   "type": "module",
   "license": "UNLICENSED",
-  "private": true,
-  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" }, "./vite": { "types": "./dist/vite.d.ts", "import": "./dist/vite.js" } },
-  "files": ["dist", "README.md", "LICENSE-STATUS.md"],
-  "scripts": { "build": "tsc -p tsconfig.json", "test": "vitest run", "test:e2e": "playwright test", "check": "pnpm build && pnpm test" },
-  "devDependencies": { "@playwright/test": "1.55.0", "@types/node": "22.18.6", "typescript": "5.9.2", "vite": "7.1.7", "vitest": "3.2.4", "jsdom": "26.1.0" },
-  "engines": { "node": ">=20" }
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./vite": {
+      "types": "./dist/vite.d.ts",
+      "import": "./dist/vite.js"
+    },
+    "./vue": {
+      "types": "./dist/vue.d.ts",
+      "import": "./dist/vue.js"
+    },
+    "./vue-runtime": {
+      "types": "./dist/vue-runtime.d.ts",
+      "import": "./dist/vue-runtime.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE-STATUS.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:package": "node scripts/package-consumer.mjs",
+    "check": "pnpm build && pnpm test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.55.0",
+    "@types/node": "22.18.6",
+    "@vitejs/plugin-vue": "6.0.10",
+    "@vue/compiler-dom": "3.5.44",
+    "@vue/compiler-sfc": "3.5.44",
+    "jsdom": "26.1.0",
+    "typescript": "5.9.2",
+    "vite": "7.1.7",
+    "vitest": "3.2.4",
+    "vue": "3.5.44"
+  },
+  "peerDependencies": {
+    "@vue/compiler-dom": "^3.5.0",
+    "@vue/compiler-sfc": "^3.5.0",
+    "@types/node": ">=20",
+    "vue": "^3.5.0",
+    "vite": ">=5 <9"
+  },
+  "pnpm": { "onlyBuiltDependencies": ["esbuild"] },
+  "engines": {
+    "node": ">=20"
+  }
 }

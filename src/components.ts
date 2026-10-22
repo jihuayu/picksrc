@@ -2,6 +2,8 @@ import type { ComponentRecord, SourcePosition } from './protocol.js';
 
 /** Host/runtime adapters attach verified component evidence to a rendered root element. */
 const records = new WeakMap<Element, ComponentRecord>();
+const runtimeIds = new WeakMap<Element, string>(); let runtimeSerial = 0;
+export function getRuntimeInstanceId(element: Element): string { let id=runtimeIds.get(element); if (!id) { id=`el-${++runtimeSerial}`; runtimeIds.set(element,id); } return id; }
 export function registerComponent(element: Element, record: ComponentRecord): () => void {
   const previous = records.get(element);
   records.set(element, record);
