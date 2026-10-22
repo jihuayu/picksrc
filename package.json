@@ -1,0 +1,13 @@
+{
+  "name": "picksrc",
+  "version": "0.1.0",
+  "description": "Framework-neutral element picking, component locating, and source evidence SDK",
+  "type": "module",
+  "license": "UNLICENSED",
+  "private": true,
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" }, "./vite": { "types": "./dist/vite.d.ts", "import": "./dist/vite.js" } },
+  "files": ["dist", "README.md", "LICENSE-STATUS.md"],
+  "scripts": { "build": "tsc -p tsconfig.json", "test": "vitest run", "test:e2e": "playwright test", "check": "pnpm build && pnpm test" },
+  "devDependencies": { "@playwright/test": "1.55.0", "@types/node": "22.18.6", "typescript": "5.9.2", "vite": "7.1.7", "vitest": "3.2.4", "jsdom": "26.1.0" },
+  "engines": { "node": ">=20" }
+}
