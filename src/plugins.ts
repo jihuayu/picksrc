@@ -8,7 +8,7 @@ export class PluginRegistry {
     if (this.#active) return;
     const sorted = this.#sort(); this.#controller = new AbortController();
     try { for (const p of sorted) { const cleanup = await p.setup({ signal: this.#controller.signal, diagnose }); if (cleanup) this.#cleanups.push(cleanup); } this.#active = true; }
-    catch (error) { await this.#disposePartial(diagnose); throw error; }
+    catch (error) { this.#controller.abort(error); await this.#disposePartial(diagnose); throw error; }
   }
   async dispose(): Promise<void> { this.#controller?.abort(); await this.#disposePartial(() => {}); this.#active = false; }
   #sort(): PluginDescriptor[] {
